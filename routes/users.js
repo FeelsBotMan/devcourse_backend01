@@ -1,132 +1,83 @@
 const express = require('express');
 const usersRouter = express.Router();
+const conn = require('../mariadb');
+const bcrypt = require('bcrypt');
+const util = require('util');
 
-let userDB = new Map(); // 가상의 사용자 데이터베이스
-let userIdCounter = 1;  // 사용자 ID 증가용 변수
+const query = util.promisify(conn.query).bind(conn);
 
-// GET: 모든 사용자 가져오기 또는 특정 사용자 검색
-usersRouter.get('/', (req, res) => {
+usersRouter.get('/login', async (req, res) => {
   try {
-    const { name } = req.query;
-    const users = Array.from(userDB.values());
-
-    if (name) {
-      const filteredUsers = users.filter(user => 
-        user.name.toLowerCase().includes(name.toLowerCase())
-      );
-      return res.json({
-        count: filteredUsers.length,
-        users: filteredUsers
-      });
-    }
-
-    res.json({
-      count: users.length,
-      users: users
-    });
-  } catch (error) {
-    res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
-  }
-});
-
-// GET: 특정 사용자 ID로 조회
-usersRouter.get('/:id', (req, res) => {
-  try {
-    const userId = parseInt(req.params.id, 10);
-
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: '유효하지 않은 사용자 ID입니다.' });
-    }
-
-    const user = userDB.get(userId);
+    const { email, password } = req.query;
     
-    if (!user) {
-      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    const user = await query('SELECT * FROM users WHERE email = ?', [email]);
+    if (!user[0]) {
+      return res.status(401).json({ message: '이메일 또는 비밀번호가 일치하지 않습니다.' });
     }
 
-    res.json(user);
+    const isValidPassword = await bcrypt.compare(password, user[0].password);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: '이메일 또는 비밀번호가 일치하지 않습니다.' });
+    }
+
+    res.status(200).json({
+      message: '로그인 성공',
+      user: { ...user[0], password: undefined }
+    });
+
   } catch (error) {
     res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
   }
 });
 
-// POST: 새로운 사용자 추가
-usersRouter.post('/join', (req, res) => {
+usersRouter.post('/join', async (req, res) => {
   try {
-    const { name, username, password } = req.body;
+    const { email, name, password, contact } = req.body;
 
-    // 입력값 유효성 검사
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return res.status(400).json({ message: '유효한 이름을 입력해주세요.' });
+    if (!email?.trim() || !name?.trim() || !password || !contact?.trim()) {
+      return res.status(400).json({ message: '모든 필드를 입력해주세요.' });
     }
-    if (!username || typeof username !== 'string' || username.trim().length === 0) {
-      return res.status(400).json({ message: '유효한 아이디를 입력해주세요.' });
-    }
-    if (!password || typeof password !== 'string' || password.length < 6) {
-      return res.status(400).json({ message: '비밀번호는 최소 6자 이상이어야 합니다.' });
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: '유효한 이메일 형식이 아닙니다.' });
     }
 
-    // 아이디 중복 검사
-    const isUsernameTaken = Array.from(userDB.values()).some(
-      user => user.username === username.trim()
+    const existingUser = await query('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingUser.length > 0) {
+      return res.status(409).json({ message: '이미 존재하는 이메일입니다.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = await query(
+      'INSERT INTO users (email, name, password, contact) VALUES (?, ?, ?, ?)',
+      [email, name, hashedPassword, contact]
     );
-    if (isUsernameTaken) {
-      return res.status(400).json({ message: '이미 사용 중인 아이디입니다.' });
-    }
 
-    const userId = userIdCounter++;
-    const newUser = {
-      id: userId,
-      name: name.trim(),
-      username: username.trim(),
-      password: password // 실제 구현시에는 반드시 암호화해야 합니다!
-    };
-
-    userDB.set(userId, newUser);
-
-    // 비밀번호는 응답에서 제외
-    const { password: _, ...userWithoutPassword } = newUser;
     res.status(201).json({
-      message: '사용자가 성공적으로 생성되었습니다.',
-      user: userWithoutPassword,
+      message: '회원가입 성공',
+      userId: result.insertId
     });
+
   } catch (error) {
     res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
   }
 });
 
-// PUT: 사용자 정보 업데이트
-usersRouter.put('/:id', (req, res) => {
-  try {
-    const userId = parseInt(req.params.id, 10);
-    const { name } = req.body;
-
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: '유효하지 않은 사용자 ID입니다.' });
-    }
-
-    if (!userDB.has(userId)) {
-      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
-    }
-
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return res.status(400).json({ message: '유효한 이름을 입력해주세요.' });
-    }
-
-    const updatedUser = { id: userId, name: name.trim() };
-    userDB.set(userId, updatedUser);
-
-    res.json({
-      message: `ID ${userId}의 사용자 정보가 성공적으로 업데이트되었습니다.`,
-      user: updatedUser,
+usersRouter
+  .route('/:id')
+  .get((req, res) => {
+    const { email } = req.query;
+    conn.query('SELECT * FROM users WHERE email = ?', [email], (err, results) => {
+      if (err) throw err;
+      res.status(200).json({
+        message: '사용자 조회 성공',
+        user: results[0]
+      });
     });
-  } catch (error) {
-    res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
-  }
-});
-
-// DELETE: 사용자 삭제
-usersRouter.delete('/:id', (req, res) => {
+  })
+  .delete((req, res) => {
   try {
     const userId = parseInt(req.params.id, 10);
 
@@ -134,15 +85,14 @@ usersRouter.delete('/:id', (req, res) => {
       return res.status(400).json({ message: '유효하지 않은 사용자 ID입니다.' });
     }
 
-    if (!userDB.has(userId)) {
-      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
-    }
-
-    userDB.delete(userId);
-
-    res.json({
-      message: `ID ${userId}의 사용자가 성공적으로 삭제되었습니다.`,
+    conn.query('DELETE FROM users WHERE id = ?', [userId], (err, results) => {
+      if (err) throw err;
+      res.status(200).json({
+        message: `ID ${userId}의 사용자가 성공적으로 삭제되었습니다.`,
+      });
     });
+
+
   } catch (error) {
     res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
   }
