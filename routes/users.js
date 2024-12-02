@@ -67,35 +67,43 @@ usersRouter.post('/join', async (req, res) => {
 
 usersRouter
   .route('/:id')
-  .get((req, res) => {
-    const { email } = req.query;
-    conn.query('SELECT * FROM users WHERE email = ?', [email], (err, results) => {
-      if (err) throw err;
+  .get(async (req, res) => {
+    try {
+      const { email } = req.query;
+      const user = await query('SELECT * FROM users WHERE email = ?', [email]);
+      
+      if (!user[0]) {
+        return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+      }
+
       res.status(200).json({
         message: '사용자 조회 성공',
-        user: results[0]
+        user: { ...user[0], password: undefined }
       });
-    });
-  })
-  .delete((req, res) => {
-  try {
-    const userId = parseInt(req.params.id, 10);
-
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: '유효하지 않은 사용자 ID입니다.' });
+    } catch (error) {
+      res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
     }
+  })
+  .delete(async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id, 10);
 
-    conn.query('DELETE FROM users WHERE id = ?', [userId], (err, results) => {
-      if (err) throw err;
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: '유효하지 않은 사용자 ID입니다.' });
+      }
+
+      const result = await query('DELETE FROM users WHERE id = ?', [userId]);
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: '삭제할 사용자를 찾을 수 없습니다.' });
+      }
+
       res.status(200).json({
         message: `ID ${userId}의 사용자가 성공적으로 삭제되었습니다.`,
       });
-    });
-
-
-  } catch (error) {
-    res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
-  }
-});
+    } catch (error) {
+      res.status(500).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+    }
+  });
 
 module.exports = usersRouter;
