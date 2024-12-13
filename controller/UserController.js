@@ -29,7 +29,7 @@ const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@
 const validatePassword = (password) => {
     return PASSWORD_REGEX.test(password);
 };
-        
+
 
 const query = util.promisify(conn.query).bind(conn);
 
@@ -59,7 +59,7 @@ const join = async (req, res) => {
       });
 
     } catch (error) {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.' });
     }
 };
 
@@ -98,7 +98,7 @@ const login = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.' });
     }
 };
 
@@ -123,7 +123,7 @@ const userGet = async (req, res) => {
         user: { ...user[0], password: undefined }
       });
     } catch (error) {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.' });
     }
 };
 
@@ -146,7 +146,7 @@ const userDelete = async (req, res) => {
         message: `ID ${userId}의 사용자가 성공적으로 삭제되었습니다.`,
       });
     } catch (error) {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.' });
     }
 };
 
@@ -177,7 +177,7 @@ const passwordReset = async (req, res) => {
             tempPassword // 실제 서비스에서는 제거 필요
         });
     } catch (error) {
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.' });
     }
 };
 
@@ -221,7 +221,7 @@ const passwordChange = async (req, res) => {
             userId: user[0].id
         });
     } catch (error) {
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.' });
     }
 };
 
@@ -238,7 +238,7 @@ const logout = (req, res) => {
         res.clearCookie('token');
         res.status(StatusCodes.OK).json({ message: '로그아웃 성공' });
     } catch (error) {
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.', error: error.message });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: '서버 오류가 발생했습니다.' });
     }
 };
 

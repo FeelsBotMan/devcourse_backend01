@@ -2,6 +2,7 @@ const express = require('express');
 const { join, joinValidator, login, loginValidator, passwordReset, passwordResetValidator, passwordChange, passwordChangeValidator, userGet, userGetValidator, userDelete, userDeleteValidator, logout } = require('../controller/UserController');
 const usersRouter = express.Router();
 
+usersRouter.use(express.json());
 
 // 로그인
 usersRouter.post(
@@ -9,6 +10,9 @@ usersRouter.post(
   loginValidator,
   login
 );
+
+// 로그아웃
+usersRouter.post('/logout', logout);
 
 // 회원가입
 usersRouter.post(
