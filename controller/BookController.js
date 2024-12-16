@@ -15,7 +15,7 @@ const allBooks = async (req, res) => {
         return res.status(StatusCodes.BAD_REQUEST).json({message: '페이지 또는 한계값이 유효하지 않습니다.'});
     }
 
-    let sql = 'SELECT * FROM books';
+    let sql = 'SELECT *, (SELECT COUNT(*) FROM likes WHERE book_id = books.id) AS likes_count FROM books';
     let params = [];
     if (category_id && newly !== undefined) {
         sql += ' WHERE category_id = ? AND pub_date BETWEEN DATE_SUB(NOW(), INTERVAL 1 MONTH) AND NOW()';
@@ -46,7 +46,9 @@ const allBooks = async (req, res) => {
 
 const bookDetail = async (req, res) => {
     try {
-        const [result] = await query(`SELECT * FROM books LEFT JOIN categories ON books.category_id = categories.id WHERE books.id = ?`, [req.params.id]);
+        const { user_id } = req.body;
+        const book_id = req.params.id;
+        const [result] = await query(`SELECT b.*, c.name AS category_name, (SELECT COUNT(*) FROM likes WHERE book_id = b.id) AS likes_count, CASE WHEN EXISTS (SELECT 1 FROM likes WHERE book_id = b.id AND user_id = ?) THEN TRUE ELSE FALSE END AS user_liked FROM books b LEFT JOIN categories c ON b.category_id = c.id WHERE b.id = ?`, [user_id, book_id]);
         if (result.length === 0) {
             res.status(StatusCodes.NOT_FOUND).json({message: '조회 결과가 없습니다.'});
         } else {

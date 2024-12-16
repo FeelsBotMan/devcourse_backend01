@@ -1,19 +1,15 @@
 const express = require('express');
 const router = express.Router();
 
+const { countLikes, addLike, removeLike } = require('../controller/LikeController');
+
 router.use(express.json());
 
-router.get('/', (req, res) => {
-    res.json({ message: 'Likes fetched successfully' });
-});
+router.get('/:id', countLikes);
 
-router.post('/:id', (req, res) => {
-    res.json({ message: 'Like created successfully', like: req.params.id });
-});
+router.post('/:id', addLike);
 
-router.delete('/:id', (req, res) => {
-    res.json({ message: 'Like deleted successfully', like: req.params.id });
-});
+router.delete('/:id', removeLike);
 
 
 
